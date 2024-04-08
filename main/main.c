@@ -134,7 +134,7 @@ void mouse_task(void *p){
         //SW
         uint16_t btn;
         if (xQueueReceive(xQueueBTN, &btn,pdMS_TO_TICKS(100))) {
-            if (btn = 0){
+            if (btn == 0){
                 int sw = 1;
             }
             else{
