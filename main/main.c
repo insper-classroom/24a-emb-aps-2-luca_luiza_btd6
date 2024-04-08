@@ -36,17 +36,19 @@ typedef struct macaco {
 } macaco_t;
 
 //Listas de Macacos do jogo e respectivos atalhos
-const char azul = ["Macaco Dardo", "Macaco Bumerangue", "Bombardeiro", "Cospe Tachinha", "Macaco de Gelo", "Cospe Cola"]
-const char a_azul = ['Q','W','E','R','T','Y']
+const char azul = ["Macaco Dardo", "Macaco Bumerangue", "Bombardeiro", "Cospe Tachinha", "Macaco de Gelo", "Cospe Cola"];
+const char a_azul = ['Q','W','E','R','T','Y'];
 
-const char verde = ["Macaco Atirador", "Macaco Sub", "Macaco Bucaneiro", "Macaco Ás", "Helicóptero", "Macaco Morteiro", "Arma de Dardos"]
-const char a_verde = ['Z','X','C','V','B','N','M']
+const char verde = ["Macaco Atirador", "Macaco Sub", "Macaco Bucaneiro", "Macaco Ás", "Helicóptero", "Macaco Morteiro", "Arma de Dardos"];
+const char a_verde = ['Z','X','C','V','B','N','M'];
 
-const char roxo = ["Macaco Mago", "Super Macaco", "Macaco Ninja", "Alquimista", "Druida"]
-const char a_roxo = ['A','S','D','F','G']
+const char roxo = ["Macaco Mago", "Super Macaco", "Macaco Ninja", "Alquimista", "Druida"];
+const char a_roxo = ['A','S','D','F','G'];
 
-const char amarelo = ["Heroi", "Fazenda", "Usina de Espinhos", "Vila Macaco", "Macaco Engenheiro", "Domador de Feras", "Fazendeiro"]
-const char a_amarelo = ['U','H','J','K','L','I','O']
+const char amarelo = ["Heroi", "Fazenda", "Usina de Espinhos", "Vila Macaco", "Macaco Engenheiro", "Domador de Feras", "Fazendeiro"];
+const char a_amarelo = ['U','H','J','K','L','I','O'];
+
+const char a_melhorias = [',','.','/'];
 
 //IRQS________________________________________________________________________________________________________________________________
 void btn_callback(uint gpio, uint32_t events) {
