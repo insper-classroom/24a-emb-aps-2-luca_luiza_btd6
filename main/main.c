@@ -8,15 +8,28 @@
 #include <string.h>
 #include "ssd1306.h"
 #include "gfx.h"
+#include "hardware/adc.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
 #include "hc06.h"
 
 //PINs
-BTN_PIN_SW = 6;
+const int BTN_PIN_SW = 12;
+const int BTN_PIN_1 = 4;
+const int BTN_PIN_2 = 5;
+const int BTN_PIN_3 = 6;
+const int BTN_PIN_ENTER = 10;
+const int BTN_PIN_UP = 11;
+const int BTN_PIN_RIGHT = 12;
+const int BTN_PIN_DOWN = 13;
+const int BTN_PIN_LEFT = 14;
+const int BTN_PIN_ON_OFF = 7;
 
-X_PIN = 27;
-Y_PIN = 28;
+const int X_PIN = 27;
+const int Y_PIN = 28;
+
+const int ENCA_PIN = 12;
+const int ENCB_PIN = 13;
 
 //Filas, Semaforos e structs
 QueueHandle_t xQueueMouse;
@@ -25,9 +38,8 @@ QueueHandle_t xQueueLetra;
 QueueHandle_t xQueueMacaco;
 
 typedef struct mouse {
-    int x; //pos_x
-    int y; //pos_y
-    int sw; //click_joystick
+    int axis; 
+    int val;
 } mouse_t;
 
 typedef struct macaco {
@@ -36,25 +48,33 @@ typedef struct macaco {
 } macaco_t;
 
 //Listas de Macacos do jogo e respectivos atalhos
-const char azul = {"Macaco Dardo", "Macaco Bumerangue", "Bombardeiro", "Cospe Tachinha", "Macaco de Gelo", "Cospe Cola"};
-const char a_azul = {'Q','W','E','R','T','Y'};
+const char * azul[] = {"Macaco Dardo", "Macaco Bumerangue", "Bombardeiro", "Cospe Tachinha", "Macaco de Gelo", "Cospe Cola"};
+const char a_azul[] = {'Q','W','E','R','T','Y'};
 
-const char verde = {"Macaco Atirador", "Macaco Sub", "Macaco Bucaneiro", "Macaco Ás", "Helicóptero", "Macaco Morteiro", "Arma de Dardos"};
-const char a_verde = {'Z','X','C','V','B','N','M'};
+const char * verde[] = {"Macaco Atirador", "Macaco Sub", "Macaco Bucaneiro", "Macaco Ás", "Helicóptero", "Macaco Morteiro", "Arma de Dardos"};
+const char a_verde[] = {'Z','X','C','V','B','N','M'};
 
-const char roxo = {"Macaco Mago", "Super Macaco", "Macaco Ninja", "Alquimista", "Druida"};
-const char a_roxo = {'A','S','D','F','G'};
+const char * roxo[] = {"Macaco Mago", "Super Macaco", "Macaco Ninja", "Alquimista", "Druida"};
+const char a_roxo[] = {'A','S','D','F','G'};
 
-const char amarelo = {"Heroi", "Fazenda", "Usina de Espinhos", "Vila Macaco", "Macaco Engenheiro", "Domador de Feras", "Fazendeiro"};
-const char a_amarelo = {'U','H','J','K','L','I','O'};
+const char * amarelo[] = {"Heroi", "Fazenda", "Usina de Espinhos", "Vila Macaco", "Macaco Engenheiro", "Domador de Feras", "Fazendeiro"};
+const char a_amarelo[] = {'U','H','J','K','L','I','O'};
 
-const char a_melhorias = {',','.','/'};
+const char a_melhorias[] = {',','.','/'};
+
+//Configuração do Encoder
+const int8_t state_table[] = {
+        0, -1,  1,  0,
+        1,  0,  0, -1,
+        -1,  0,  0,  1,
+        0,  1, -1,  0
+    };
 
 //IRQS________________________________________________________________________________________________________________________________
 void btn_callback(uint gpio, uint32_t events) {
     uint16_t btn;
-    // 0--> SW, 1-->BTN1, 2-->BTN2, 3-->BTN3,4-->ENTER, 5-->UP, 6-->RIGHT, 7-->DOWN, 8-->LEFT
-    if (events == 0x4) { // fall edge
+    // 0--> SW, 1-->BTN1, 2-->BTN2, 3-->BTN3,4-->ENTER, 5-->UP, 6-->RIGHT, 7-->DOWN, 8-->LEFT, 9-->ON_OFF
+    if (events == (0x04)) { 
         if (gpio == BTN_PIN_SW){
             btn = 0;
         }
@@ -82,10 +102,12 @@ void btn_callback(uint gpio, uint32_t events) {
         else if (gpio == BTN_PIN_LEFT){
             btn = 8;
         }
-
-        //Envia o botão pressionado
-        xQueueSendFromISR(xQueueBTN, &btn, NULL);
+        else if (gpio == BTN_PIN_ON_OFF){
+            btn = 9;
+        }       
     }
+
+    xQueueSendFromISR(xQueueBTN, &btn, 1);
 }
 
 // TASKS_______________________________________________________________________________________________________________________________
@@ -95,9 +117,84 @@ void hc06_task(void *p) {
     gpio_set_function(HC06_RX_PIN, GPIO_FUNC_UART);
     hc06_init("aps2_legal", "1234");
 
+    char letra;
+    struct mouse mouse_data;
     while (true) {
-        uart_puts(HC06_UART_ID, "OLAAA ");
-        vTaskDelay(pdMS_TO_TICKS(100));
+        if (xQueueReceive(xQueueLetra, &letra, 1)) {
+            uart_puts(HC06_UART_ID, letra);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        if (xQueueReceive(xQueueMouse, &mouse_data, 1)) {
+            uart_puts(HC06_UART_ID, mouse_data.axis);
+            uart_puts(HC06_UART_ID, mouse_data.val);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+}
+
+void botao_task(void *p) {
+    //printf("Botao task\n");
+    gpio_init(BTN_PIN_SW);
+    gpio_set_dir(BTN_PIN_SW, GPIO_IN);
+    gpio_pull_up(BTN_PIN_SW);
+
+    gpio_init(BTN_PIN_1);
+    gpio_set_dir(BTN_PIN_1, GPIO_IN);
+    gpio_pull_up(BTN_PIN_1);
+
+    gpio_init(BTN_PIN_2);
+    gpio_set_dir(BTN_PIN_2, GPIO_IN);
+    gpio_pull_up(BTN_PIN_2);
+
+    gpio_init(BTN_PIN_3);
+    gpio_set_dir(BTN_PIN_3, GPIO_IN);
+    gpio_pull_up(BTN_PIN_3);
+
+    gpio_init(BTN_PIN_ENTER);
+    gpio_set_dir(BTN_PIN_ENTER, GPIO_IN);
+    gpio_pull_up(BTN_PIN_ENTER);
+
+    gpio_init(BTN_PIN_UP);
+    gpio_set_dir(BTN_PIN_UP, GPIO_IN);
+    gpio_pull_up(BTN_PIN_UP);
+
+    gpio_init(BTN_PIN_RIGHT);
+    gpio_set_dir(BTN_PIN_RIGHT, GPIO_IN);
+    gpio_pull_up(BTN_PIN_RIGHT);
+
+    gpio_init(BTN_PIN_DOWN);
+    gpio_set_dir(BTN_PIN_DOWN, GPIO_IN);
+    gpio_pull_up(BTN_PIN_DOWN);
+
+    gpio_init(BTN_PIN_LEFT);
+    gpio_set_dir(BTN_PIN_LEFT, GPIO_IN);
+    gpio_pull_up(BTN_PIN_LEFT);
+
+    gpio_init(BTN_PIN_ON_OFF);
+    gpio_set_dir(BTN_PIN_ON_OFF, GPIO_IN);
+    gpio_pull_up(BTN_PIN_ON_OFF);
+
+    gpio_set_irq_enabled_with_callback(BTN_PIN_1, GPIO_IRQ_EDGE_FALL, true, &btn_callback);
+    gpio_set_irq_enabled(BTN_PIN_SW, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_2, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_3, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_ENTER, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_UP, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_RIGHT, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_DOWN, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_LEFT, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled(BTN_PIN_ON_OFF, GPIO_IRQ_EDGE_FALL,true);
+
+
+    uint16_t btn;
+    //printf("CONFIGURADO\n\n");
+    while (1) {
+        //printf("xQueueBTN: ");
+        if (xQueueReceiveFromISR(xQueueBTN, &btn, 1)) {
+            printf("Botao pressionado: %d\n", btn);
+        }
+        //printf("W\n");
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -122,7 +219,11 @@ void mouse_task(void *p){
         if (x <=zone_limit && x >= -1*(zone_limit)) {
             x = 0;
         }
+
+        struct mouse mouse_data_x = {0,(int)x};
+        xQueueSend(xQueueMouse, &mouse_data_x, 1);
         
+
         //Y
         adc_select_input(2); // Select ADC input 2 (GPIO28)
         int y = adc_read();
@@ -132,30 +233,33 @@ void mouse_task(void *p){
         if (y <=zone_limit && y >= -1*(zone_limit)) {
             y = 0;
         }
-
-        //SW
-        uint16_t btn;
-        if (xQueueReceive(xQueueBTN, &btn,pdMS_TO_TICKS(100))) {
-            if (btn == 0){
-                int sw = 1;
-            }
-            else{
-                int sw = 0;
-            }
-        }
-        else{
-            int sw = 0;
-        }
-
         
-        struct mouse mouse_data = {x,y,sw};
-        xQueueSend(xQueueMouse, &mouse_data, portMAX_DELAY);
+        struct mouse mouse_data_y = {1,(int)y};
+        xQueueSend(xQueueMouse, &mouse_data_y, 1);
 
-        vTaskDelay(pdMS_TO_TICKS(100));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-void oled_task(void *p) {
+void seletor_task(void *p) {
+
+    uint8_t enc_state = 0; // Current state of the encoder
+    int8_t last_encoded = 0; // Last encoded state
+    int8_t encoded;
+    int sum;
+    int last_sum = 0; // Last non-zero sum to filter out noise
+    int debounce_counter = 0; // Debounce counter
+
+    // Inicialização do Encoder
+    gpio_init(ENCA_PIN);
+    gpio_init(ENCB_PIN);
+    gpio_set_dir(ENCA_PIN, GPIO_IN);
+    gpio_set_dir(ENCB_PIN, GPIO_IN);
+    gpio_pull_up(ENCA_PIN);
+    gpio_pull_up(ENCB_PIN);
+
+    last_encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
+
     printf("Inicializando Driver\n");
     ssd1306_init();
 
@@ -164,21 +268,45 @@ void oled_task(void *p) {
     gfx_init(&disp, 128, 32);
 
     char str[100];
-    macaco mcaco;
+    macaco_t mcaco;
     while (1) {
+        encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
+        enc_state = (enc_state << 2) | encoded;
+        sum = state_table[enc_state & 0x0f];
+
+         if (sum != 0) {
+            if (sum == last_sum) {
+                if (++debounce_counter > 1) {  // Check if the same movement is read consecutively
+                    if (sum == 1) {
+                        printf("RIGHT\n");
+                    } else if (sum == -1) {
+                        printf("LEFT\n");
+                    }
+                    debounce_counter = 0;  // Reset the counter after confirming the direction
+                }
+            } else {
+                debounce_counter = 0;  // Reset the counter if the direction changes
+            }
+            last_sum = sum;  // Update last_sum to the current sum
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1)); // Poll every 1 ms to improve responsiveness
         if (xQueueReceive(xQueueMacaco, &mcaco,  0)) {
+            int lista;
+            int indice;
+
             lista = mcaco.lista; //azul= 1,verde = 2,roxo = 3 ou amarelo = 4
             indice = mcaco.i;
 
             //Acessa o valor i da lista, conforme fornecido pela fila
             if (lista == 1)
-                str = azul[indice];
+                strcpy(str, azul[indice]);
             else if (lista == 2)
-                str = verde[indice];
+                strcpy(str, verde[indice]);
             else if (lista == 3)
-                str = roxo[indice];
+                strcpy(str, roxo[indice]);
             else if (lista == 4)
-                str = amarelo[indice];
+                strcpy(str, amarelo[indice]);
             
                 gfx_clear_buffer(&disp);
                 gfx_draw_string(&disp, 0, 0, 2, str);
@@ -196,7 +324,7 @@ void oled_task(void *p) {
 int main() {
     stdio_init_all();
 
-    printf("Start bluetooth task\n");
+    //printf("Start bluetooth task\n");
 
     //Semaforos
 
@@ -208,9 +336,10 @@ int main() {
 
 
     //Tasks
-    xTaskCreate(mouse_task, "Mouse_Task", 256, NULL, 1, NULL);
-    xTaskCreate(hc06_task, "UART_Task 1", 4096, NULL, 1, NULL);
-    xTaskCreate(oled_task, "Display", 4095, NULL, 1, NULL);
+    //xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
+    //xTaskCreate(hc06_task, "UART_Task 1", 4096, NULL, 1, NULL);
+    //xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
+    xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
 
 
     vTaskStartScheduler();
