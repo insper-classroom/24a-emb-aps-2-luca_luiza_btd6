@@ -136,9 +136,10 @@ void seletor_task(void *p) {
     uint8_t enc_state = 0; // Current state of the encoder
     int8_t last_encoded = 0; // Last encoded state
     int8_t encoded;
-    int sum;
+    int sum = 0;
     int last_sum = 0; // Last non-zero sum to filter out noise
     int debounce_counter = 0; // Debounce counter
+    int count = 0;
 
     // Inicialização do Encoder
     gpio_init(ENCA_PIN);
@@ -168,10 +169,28 @@ void seletor_task(void *p) {
             if (sum == last_sum) {
                 if (++debounce_counter > 1) {  // Check if the same movement is read consecutively
                     if (sum == 1) {
-                        printf("RIGHT\n");
-
-                    } else if (sum == -1) {
-                        printf("LEFT\n");
+                        count++;
+                        if (count >= 0) {
+                            sprintf(str, "%s", azul[count]);
+                            gfx_clear_buffer(&disp);
+                            gfx_draw_string(&disp, 0, 0, 1, str);
+                            gfx_show(&disp);
+                        }
+                        else {
+                            count = 0;
+                        }
+                    } 
+                    else if (sum == -1) {
+                        count--;
+                        if (count >= 0) {
+                            sprintf(str, "%s", azul[count]);
+                            gfx_clear_buffer(&disp);
+                            gfx_draw_string(&disp, 0, 0, 1, str);
+                            gfx_show(&disp);
+                        }
+                        else {
+                            count = 0;
+                        }
 
                     }
                     debounce_counter = 0;  // Reset the counter after confirming the direction
@@ -206,11 +225,11 @@ void seletor_task(void *p) {
                 vTaskDelay(pdMS_TO_TICKS(50));
                 gfx_show(&disp);
             } 
-        else {
-            gfx_clear_buffer(&disp);
-            gfx_draw_string(&disp, 0, 0, 4, "BTD6!!!");
-            gfx_show(&disp);
-        }
+        // else  {
+        //     gfx_clear_buffer(&disp);
+        //     gfx_draw_string(&disp, 0, 0, 4, "BTD6!!!");
+        //     gfx_show(&disp);
+        // }
     }
 }
 
@@ -402,7 +421,7 @@ int main() {
     //Tasks
     //xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
     //xTaskCreate(hc06_task, "UART_Task 1", 4096, NULL, 1, NULL);
-    //xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
+    xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
     xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
 
 
