@@ -14,28 +14,30 @@
 #include "hc06.h"
 
 //PINs
-const int BTN_PIN_SW = 12;
-const int BTN_PIN_1 = 4;
-const int BTN_PIN_2 = 5;
-const int BTN_PIN_3 = 6;
-const int BTN_PIN_ENTER = 10;
-const int BTN_PIN_UP = 11;
-const int BTN_PIN_RIGHT = 12;
-const int BTN_PIN_DOWN = 13;
-const int BTN_PIN_LEFT = 14;
-const int BTN_PIN_ON_OFF = 7;
+const int BTN_PIN_SW = 2;
+const int BTN_PIN_1 = 3;
+const int BTN_PIN_2 = 4;
+const int BTN_PIN_3 = 5;
+const int BTN_PIN_ENTER = 26; //
+const int BTN_PIN_UP = 12; //
+const int BTN_PIN_RIGHT = 6;
+const int BTN_PIN_DOWN = 7; 
+const int BTN_PIN_LEFT = 8;
+const int BTN_PIN_ON_OFF = 13;
 
 const int X_PIN = 27;
 const int Y_PIN = 28;
 
-const int ENCA_PIN = 12;
-const int ENCB_PIN = 13;
+const int ENCA_PIN = 18;
+const int ENCB_PIN = 19;
 
 //Filas, Semaforos e structs
 QueueHandle_t xQueueMouse;
 QueueHandle_t xQueueBTN;
 QueueHandle_t xQueueLetra;
 QueueHandle_t xQueueMacaco;
+QueueHandle_t xQueueMacacoEnter;
+TaskHandle_t xHandle = NULL; // Habilita o controle das tasks por outra task
 
 typedef struct mouse {
     int axis; 
@@ -55,17 +57,19 @@ typedef struct button_click {
 //Listas de Macacos do jogo e respectivos atalhos
 const char * azul[] = {"Macaco Dardo", "Macaco Bumerangue", "Bombardeiro", "Cospe Tachinha", "Macaco de Gelo", "Cospe Cola"};
 const char a_azul[] = {'Q','W','E','R','T','Y'};
+const int azul_len = 6;
 
 const char * verde[] = {"Macaco Atirador", "Macaco Sub", "Macaco Bucaneiro", "Macaco Ás", "Helicóptero", "Macaco Morteiro", "Arma de Dardos"};
 const char a_verde[] = {'Z','X','C','V','B','N','M'};
+const int verde_len = 7;
 
 const char * roxo[] = {"Macaco Mago", "Super Macaco", "Macaco Ninja", "Alquimista", "Druida"};
 const char a_roxo[] = {'A','S','D','F','G'};
+const int roxo_len = 5;
 
 const char * amarelo[] = {"Heroi", "Fazenda", "Usina de Espinhos", "Vila Macaco", "Macaco Engenheiro", "Domador de Feras", "Fazendeiro"};
 const char a_amarelo[] = {'U','H','J','K','L','I','O'};
-
-const char a_melhorias[] = {',','.','/'};
+const int amarelo_len = 7;
 
 //Configuração do Encoder
 const int8_t state_table[] = {
@@ -76,10 +80,11 @@ const int8_t state_table[] = {
     };
 
 //IRQS________________________________________________________________________________________________________________________________
+
 void btn_callback(uint gpio, uint32_t events) {
     button_click_t btn;
     // 0--> SW, 1-->BTN1, 2-->BTN2, 3-->BTN3,4-->ENTER, 5-->UP, 6-->RIGHT, 7-->DOWN, 8-->LEFT, 9-->ON_OFF
-    if (events == (0x04)) { 
+    if (events == (0x08)) { 
         if (gpio == BTN_PIN_SW){
             btn.button = 0;
             btn.time = get_absolute_time();
@@ -147,8 +152,114 @@ void hc06_task(void *p) {
     }
 }
 
+void seletor_task(void *p) {
+
+    //Comfiguração do Encoder
+    uint8_t enc_state = 0; // Current state of the encoder
+    int8_t last_encoded = 0; // Last encoded state
+    int8_t encoded;
+    int sum = 0;
+    int last_sum = 0; // Last non-zero sum to filter out noise
+    int debounce_counter = 0; // Debounce counter
+    int count = 0;
+
+    // Inicialização do Encoder
+    gpio_init(ENCA_PIN);
+    gpio_init(ENCB_PIN);
+    gpio_set_dir(ENCA_PIN, GPIO_IN);
+    gpio_set_dir(ENCB_PIN, GPIO_IN);
+    gpio_pull_up(ENCA_PIN);
+    gpio_pull_up(ENCB_PIN);
+    last_encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
+
+    // Inicialização do Display
+    ssd1306_init();
+    ssd1306_t disp;
+    gfx_init(&disp, 128, 32);
+
+    // Inicialização de Listas que serão utilizadas no display
+    char str[100];
+    macaco_t mcaco; // Struct que contém a lista de macacos
+    int lista_len; // Tamanho da lista
+    const char **lista; // Lista de macacos
+    int i; // Indice da lista
+    int cor;
+
+
+
+    if (xQueueReceive(xQueueMacaco, &mcaco,  0)) {
+        cor = mcaco.lista; //azul= 1,verde = 2,roxo = 3 ou amarelo = 4
+        // Carrega a lista no display, dependendo do botão pressionado
+        if (cor == 1) { //Azul
+            lista = azul;
+            lista_len = azul_len;
+        } else if (cor == 2) { // Verde
+            lista = verde;
+            lista_len = verde_len;
+        } else if (cor == 3) { // Roxo
+            lista = roxo;
+            lista_len = roxo_len;
+        } else if (cor == 4) { // Amarelo
+            lista = amarelo;
+            lista_len = amarelo_len;
+        }
+    }
+    button_click_t btn;
+    
+    // Use the lista and lista_len variables in your code
+    while (1) {
+        encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
+        enc_state = (enc_state << 2) | encoded;
+        sum = state_table[enc_state & 0x0f];
+
+         if (sum != 0) {
+            if (sum == last_sum) {
+                if (++debounce_counter > 1) {  // Check if the same movement is read consecutively
+                    if (sum == 1) {
+                        count++;
+                        i = count%6;
+                        sprintf(str, "%s", azul[i]);
+                        gfx_clear_buffer(&disp);
+                        gfx_draw_string(&disp, 0, 0, 1, str);
+                        gfx_show(&disp);
+                    } 
+                    else if (sum == -1) {
+                        count--;
+                        i = count % 6;
+                        if (i < 0) { // Caso o indice seja menor que zero, volta para o fim da lista
+                            i = azul_len - 1;
+                            count = azul_len - 1;
+                        }
+                        sprintf(str, "%s", azul[i]);
+                        gfx_clear_buffer(&disp);
+                        gfx_draw_string(&disp, 0, 0, 1, str);
+                        gfx_show(&disp);
+                    }
+                    debounce_counter = 0;  // Reset the counter after confirming the direction
+                    
+                    //Caso o botão enter seja pressionado, o macaco selecionado é enviado para a fila
+                    char letra;
+                    if (xQueueReceive(xQueueLetra, &letra, 0)) {
+//                        if (letra = ','){
+                            char macaco_selecionado = a_azul[i];
+
+                            //xQueueSend(xQueueLetra, macaco_selecionado, 1);
+//                        }
+                    }
+                }
+            } else {
+                debounce_counter = 0;  // Reset the counter if the direction changes
+            }
+            last_sum = sum;  // Update last_sum to the current sum
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1)); // Poll every 1 ms to improve responsiveness
+
+
+    }
+}
+
 void botao_task(void *p) {
-    //printf("Botao task\n");
     gpio_init(BTN_PIN_SW);
     gpio_set_dir(BTN_PIN_SW, GPIO_IN);
     gpio_pull_up(BTN_PIN_SW);
@@ -189,25 +300,25 @@ void botao_task(void *p) {
     gpio_set_dir(BTN_PIN_ON_OFF, GPIO_IN);
     gpio_pull_up(BTN_PIN_ON_OFF);
 
-    gpio_set_irq_enabled_with_callback(BTN_PIN_1, GPIO_IRQ_EDGE_FALL, true, &btn_callback);
-    gpio_set_irq_enabled(BTN_PIN_SW, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_2, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_3, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_ENTER, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_UP, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_RIGHT, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_DOWN, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_LEFT, GPIO_IRQ_EDGE_FALL,true);
-    gpio_set_irq_enabled(BTN_PIN_ON_OFF, GPIO_IRQ_EDGE_FALL,true);
+    gpio_set_irq_enabled_with_callback(BTN_PIN_1, GPIO_IRQ_EDGE_RISE, true, &btn_callback);
+    gpio_set_irq_enabled(BTN_PIN_SW, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_2, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_3, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_ENTER, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_UP, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_RIGHT, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_DOWN, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_LEFT, GPIO_IRQ_EDGE_RISE,true);
+    gpio_set_irq_enabled(BTN_PIN_ON_OFF, GPIO_IRQ_EDGE_RISE,true);
 
 
     button_click_t btn;
-    
-    //printf("CONFIGURADO\n\n");
+    int liga_desliga = 0;
+    macaco_t mcaco;
     while (1) {
-        //printf("xQueueBTN: ");
         absolute_time_t start_time = get_absolute_time();
         uint32_t start_time_ms = to_ms_since_boot(start_time);
+            
         if (xQueueReceiveFromISR(xQueueBTN, &btn, 0)) {
             uint32_t pressed_time = to_ms_since_boot(btn.time);
             uint32_t delta_time = (start_time_ms - pressed_time);
@@ -224,10 +335,74 @@ void botao_task(void *p) {
                 printf("Delta: %d\n", delta_time);
             }
         }
-        //printf("W\n");
+        
+            //printf("Botao pressionado: %d\n", btn);
+            // 0--> SW, 1-->BTN1, 2-->BTN2, 3-->BTN3,4-->ENTER, 5-->UP, 6-->RIGHT, 7-->DOWN, 8-->LEFT, 9-->ON_OFF
+            //const char a_melhorias[] = {',','.','/'};
+
+            if (btn.button == 0) {
+                char letra = '|'; //Clique esquerdo do mouse
+                xQueueSend(xQueueLetra, &letra, 1);
+                //printf("Clique esquerdo do mouse\n");
+            }
+            else if (btn.button == 1) {
+                char letra = ',';
+                xQueueSend(xQueueLetra, &letra, 1);
+                //printf("Botão 1\n");
+            }
+            else if (btn.button == 2) {
+                char letra = '.';
+                xQueueSend(xQueueLetra, &letra, 1);
+                //printf("Botão 2\n");
+            }
+            else if (btn.button == 3) {
+                char letra = '/';
+                xQueueSend(xQueueLetra, &letra, 1);
+                //printf("Botão 3\n");
+            }
+            else if (btn.button == 4) {
+                int enter = 1;
+                xQueueSend(xQueueMacacoEnter, &enter, 1);
+                //printf("Enter\n");
+            }
+            else if (btn.button == 5) {
+                mcaco.lista = 1;
+                xQueueSend(xQueueMacaco, &mcaco, 1);
+                //printf("UP\n");
+            }
+            else if (btn.button == 6) {
+                mcaco.lista = 2;
+                xQueueSend(xQueueMacaco, &mcaco, 1);
+                //printf("RIGHT\n");
+            }
+            else if (btn.button == 7) {    
+                mcaco.lista = 3;
+                xQueueSend(xQueueMacaco, &mcaco, 1);
+                //printf("DOWN\n");
+            }
+            else if (btn.button == 8) {
+                mcaco.lista = 4;
+                xQueueSend(xQueueMacaco, &mcaco, 1);
+                //printf("LEFT\n");
+            }
+            else if (btn.button == 9) {
+                if (xHandle == NULL){
+                    xTaskCreate(hc06_task, "UART_Task 1", 4096, NULL, 1, &xHandle);
+                    xTaskCreate(seletor_task, "Display", 4095, NULL, 1, &xHandle);   
+                }
+                else {
+                    ssd1306_init();
+                    ssd1306_t disp;
+                    gfx_init(&disp, 128, 32);
+                    gfx_clear_buffer(&disp); // Apaga o display
+                    gfx_draw_string(&disp, 0, 0, 1, " ");
+                    vTaskDelete(xHandle);
+                    xHandle = NULL;
+                }
+            }
+        }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
-}
 
 void mouse_task(void *p){
     adc_init();
@@ -272,85 +447,7 @@ void mouse_task(void *p){
     }
 }
 
-void seletor_task(void *p) {
 
-    uint8_t enc_state = 0; // Current state of the encoder
-    int8_t last_encoded = 0; // Last encoded state
-    int8_t encoded;
-    int sum;
-    int last_sum = 0; // Last non-zero sum to filter out noise
-    int debounce_counter = 0; // Debounce counter
-
-    // Inicialização do Encoder
-    gpio_init(ENCA_PIN);
-    gpio_init(ENCB_PIN);
-    gpio_set_dir(ENCA_PIN, GPIO_IN);
-    gpio_set_dir(ENCB_PIN, GPIO_IN);
-    gpio_pull_up(ENCA_PIN);
-    gpio_pull_up(ENCB_PIN);
-
-    last_encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
-
-    printf("Inicializando Driver\n");
-    ssd1306_init();
-
-    printf("Inicializando GLX\n");
-    ssd1306_t disp;
-    gfx_init(&disp, 128, 32);
-
-    char str[100];
-    macaco_t mcaco;
-    while (1) {
-        encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
-        enc_state = (enc_state << 2) | encoded;
-        sum = state_table[enc_state & 0x0f];
-
-         if (sum != 0) {
-            if (sum == last_sum) {
-                if (++debounce_counter > 1) {  // Check if the same movement is read consecutively
-                    if (sum == 1) {
-                        printf("RIGHT\n");
-                    } else if (sum == -1) {
-                        printf("LEFT\n");
-                    }
-                    debounce_counter = 0;  // Reset the counter after confirming the direction
-                }
-            } else {
-                debounce_counter = 0;  // Reset the counter if the direction changes
-            }
-            last_sum = sum;  // Update last_sum to the current sum
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(1)); // Poll every 1 ms to improve responsiveness
-        if (xQueueReceive(xQueueMacaco, &mcaco,  0)) {
-            int lista;
-            int indice;
-
-            lista = mcaco.lista; //azul= 1,verde = 2,roxo = 3 ou amarelo = 4
-            indice = mcaco.i;
-
-            //Acessa o valor i da lista, conforme fornecido pela fila
-            if (lista == 1)
-                strcpy(str, azul[indice]);
-            else if (lista == 2)
-                strcpy(str, verde[indice]);
-            else if (lista == 3)
-                strcpy(str, roxo[indice]);
-            else if (lista == 4)
-                strcpy(str, amarelo[indice]);
-            
-                gfx_clear_buffer(&disp);
-                gfx_draw_string(&disp, 0, 0, 2, str);
-                vTaskDelay(pdMS_TO_TICKS(50));
-                gfx_show(&disp);
-            } 
-        else {
-            gfx_clear_buffer(&disp);
-            gfx_draw_string(&disp, 0, 0, 4, "BTD6!!!");
-            gfx_show(&disp);
-        }
-    }
-}
 
 int main() {
     stdio_init_all();
@@ -364,6 +461,7 @@ int main() {
     xQueueMouse = xQueueCreate(32, sizeof(mouse_t));
     xQueueLetra = xQueueCreate(32, sizeof(char));
     xQueueMacaco = xQueueCreate(32, sizeof(macaco_t));
+    xQueueMacacoEnter = xQueueCreate(32, sizeof(int));
 
 
     //Tasks
