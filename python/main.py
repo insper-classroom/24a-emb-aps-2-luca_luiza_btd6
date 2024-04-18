@@ -3,44 +3,58 @@ import uinput
 import time
 ser = serial.Serial('/dev/rfcomm0', 115200)
 
-device = uinput.Device([
-    uinput.BTN_PIN_SW,
-    uinput.BTN_PIN_1,
-    uinput.BTN_PIN_2,
-    uinput.BTN_PIN_3,
-    uinput.BTN_PIN_ENTER,
-    uinput.BTN_PIN_UP,
-    uinput.BTN_PIN_RIGHT,
-    uinput.BTN_PIN_DOWN,
-    uinput.BTN_PIN_LEFT,
-    uinput.X_PIN,
-    uinput.Y_PIN,
-])
+ax = [uinput.X_PIN, uinput.Y_PIN]
+btns = [   uinput.KEY_A,
+    uinput.KEY_B,
+    uinput.KEY_C,
+    uinput.KEY_D,
+    uinput.KEY_E,
+    uinput.KEY_F,
+    uinput.KEY_G,
+    uinput.KEY_H,
+    uinput.KEY_I,
+    uinput.KEY_J,
+    uinput.KEY_K,
+    uinput.KEY_L,
+    uinput.KEY_M,
+    uinput.KEY_N,
+    uinput.KEY_O,
+    uinput.KEY_Q,
+    uinput.KEY_R,
+    uinput.KEY_S,
+    uinput.KEY_T,
+    uinput.KEY_U,
+    uinput.KEY_V,
+    uinput.KEY_W,
+    uinput.KEY_X,
+    uinput.KEY_Y,
+    uinput.KEY_Z,
+    uinput.KEY_COMMA,
+    uinput.KEY_DOT, 
+    uinput.KEY_SLASH,]
 
-def parse_data(mouse_data):
-    x = mouse_data[0]
-    y = mouse_data[1]
-    sw = mouse_data[2]
-    print(f"x: {x},y: {y}, sw: {sw}")
-    return x, y, sw
+device = uinput.Device(btns + ax)
+btn_qntt = 27
 
-def move_mouse(x, y, sw):
-    if x == 0:
-        device.emit(uinput.KEY_X)
-    elif y == 0:
-        device.emit(uinput.KEY_Y)
-    elif sw == 0:
-        device.emit(uinput.KEY_SW)
+def parse_data(data):
+    axis = data[0]  # 0 for X, 1 for Y
+    value = int.from_bytes(data[1:3], byteorder='little', signed=True)
+    return axis, value
+
+def emulate_controller(axis, value):
+    if axis <btn_qntt:
+        device.emit(btns[axis], value)
+    else:
+        device.emit(ax[axis - btn_qntt], value)
 
 try:
     # sync package
     while True:
         print('Waiting for sync package...')
         while True:
-            mouse_data = ser.read(3)
-            x, y, sw = parse_data(mouse_data)
-            move_mouse(x, y, sw)
-
+            data = ser.read(3)
+            axis, val= parse_data(data)
+            emulate_controller(axis, val)
 
 except KeyboardInterrupt:
     print("Program terminated by user")
