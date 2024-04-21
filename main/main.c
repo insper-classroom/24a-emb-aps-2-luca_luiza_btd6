@@ -329,7 +329,6 @@ void botao_task(void *p) {
 
 
     uint16_t btn;
-    int liga_desliga = 0;
     int cor;
     while (1) {
         //printf("xQueueBTN: ");
