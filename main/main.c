@@ -76,12 +76,7 @@ void mouse_write_package(mouse_t data) {
     int val = data.val;
     int msb = val >> 8;
     int lsb = val & 0xFF ;
-
-    // uart_putc_raw(uart0, data.axis); 
-    // uart_putc_raw(uart0, lsb);
-    // uart_putc_raw(uart0, msb); 
-    // uart_putc_raw(uart0, -1); 
-
+    
     uart_putc_raw(HC06_UART_ID, data.axis); 
     uart_putc_raw(HC06_UART_ID, lsb);
     uart_putc_raw(HC06_UART_ID, msb); 
@@ -138,20 +133,18 @@ void hc06_task(void *p) {
     uart_init(HC06_UART_ID, HC06_BAUD_RATE);
     gpio_set_function(HC06_TX_PIN, GPIO_FUNC_UART);
     gpio_set_function(HC06_RX_PIN, GPIO_FUNC_UART);
-    hc06_init("BTDeck", "bloons");
+    // hc06_init("BTDeck", "bloons"); // Comentar para debugar localmente
 
     char letra;
     struct mouse mouse_data;
     while (true) {
-        if (xQueueReceive(xQueueLetra, &letra, 1)) {
-            uart_puts(HC06_UART_ID, letra);
-            vTaskDelay(pdMS_TO_TICKS(100));
+        if (xQueueReceive(xQueueLetra, &letra, pdMS_TO_TICKS(100))) {
+            uart_puts(HC06_UART_ID, &letra);
+        //     vTaskDelay(pdMS_TO_TICKS(100));  
         }
-        if (xQueueReceive(xQueueMouse, &mouse_data, 1)) {
+        if (xQueueReceive(xQueueMouse, &mouse_data, pdMS_TO_TICKS(100))) {
             mouse_write_package(mouse_data);
-            // uart_puts(HC06_UART_ID, mouse_data.axis);
-            // uart_puts(HC06_UART_ID, mouse_data.val);
-            vTaskDelay(pdMS_TO_TICKS(100));
+            // vTaskDelay(pdMS_TO_TICKS(100));
         }
     }
 }
@@ -275,7 +268,7 @@ void seletor_task(void *p) {
     }
 }
 
-void botao_task(void *p) {
+void botao_task(void *p) { 
     gpio_init(BTN_PIN_SW);
     gpio_set_dir(BTN_PIN_SW, GPIO_IN);
     gpio_pull_up(BTN_PIN_SW);
@@ -405,7 +398,7 @@ void mouse_task(void *p){
     adc_gpio_init(Y_PIN); //Y
 
     int zone_limit = 80;
-    int mouse_speed = 2;
+    int mouse_speed = 5;
     
     while (1) {
         //X
@@ -447,25 +440,13 @@ void mouse_task(void *p){
         // printf("Y: %d\n", y); // Debug
         xQueueSend(xQueueMouse, &mouse_data_y, 1);
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
 
-// void uart_task(void *p) {
-//     mouse_t data;
-
-//     while (1) {
-//         if (xQueueReceive(xQueueMouse, &data, portMAX_DELAY)) {
-//             mouse_write_package(data);
-//         }
-//     }
-// }
-
-
-
 int main() {
-    stdio_init_all();
+    // stdio_init_all();
     // uart_init(uart0, 115200);
     // gpio_set_function(0, GPIO_FUNC_UART);
     // gpio_set_function(1, GPIO_FUNC_UART);
@@ -486,9 +467,6 @@ int main() {
     xTaskCreate(hc06_task, "UART_Task 1", 4096, NULL, 1, NULL);
     xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
     xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
-
-    // xTaskCreate(uart_task, "uart_task", 256, NULL, 1, NULL); / Debug
-
 
     vTaskStartScheduler();
 

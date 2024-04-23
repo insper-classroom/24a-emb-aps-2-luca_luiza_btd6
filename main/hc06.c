@@ -4,7 +4,7 @@ bool hc06_check_connection() {
     char str[32];
     int i = 0;
     uart_puts(HC06_UART_ID, "AT");
-    while (uart_is_readable_within_us(HC06_UART_ID, 1000)) {
+    while (uart_is_readable_within_us(HC06_UART_ID, 2000)) {
         str[i++] = uart_getc(HC06_UART_ID);
     }
     str[i] = '\0';
