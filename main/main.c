@@ -129,35 +129,6 @@ void btn_callback(uint gpio, uint32_t events) {
 }
 
 // TASKS_______________________________________________________________________________________________________________________________
-void hc05_task(void *p) {
-    uart_init(hc05_UART_ID, hc05_BAUD_RATE);
-    gpio_set_function(hc05_TX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(hc05_RX_PIN, GPIO_FUNC_UART);
-    hc05_init("Carushow", "1234");
-
-    // hc06_init("BTDeck", "bloons"); // Comentar para debugar localmente
-
-    //if hc05_chack_connection();
-
-    char letra;
-    char msg[2];
-    struct mouse mouse_data;
-    while (true) {
-        // uart_puts(hc05_UART_ID, "OLAAA ");
-        sprintf(msg,"%c ", letra);
-        if (xQueueReceive(xQueueLetra, &letra, pdMS_TO_TICKS(100))) {
-            uart_puts(hc05_UART_ID, msg);
-        //     vTaskDelay(pdMS_TO_TICKS(100));  
-        }
-        if (xQueueReceive(xQueueMouse, &mouse_data, pdMS_TO_TICKS(100))) {
-            mouse_write_package(mouse_data);
-            // vTaskDelay(pdMS_TO_TICKS(100));
-        }
-        vTaskDelay(pdMS_TO_TICKS(100));
-
-    }
-}
-
 void seletor_task(void *p) {
     //Configuração do Encoder
     uint8_t enc_state = 0; // Current state of the encoder
@@ -426,9 +397,9 @@ void mouse_task(void *p){
         }
         struct mouse mouse_data_x = {0,(int)x};
         // printf("X: %d\n", x); // Debug
-        xQueueSend(xQueueMouse, &mouse_data_x, 1);
+        if (x != 0)
+            xQueueSend(xQueueMouse, &mouse_data_x, 1);
         
-
         //Y
         adc_select_input(2); // Select ADC input 2 (GPIO28)
         int y = adc_read();
@@ -446,12 +417,65 @@ void mouse_task(void *p){
         }
         struct mouse mouse_data_y = {1,(int)y};
         // printf("Y: %d\n", y); // Debug
-        xQueueSend(xQueueMouse, &mouse_data_y, 1);
+
+        if (y != 0)
+            xQueueSend(xQueueMouse, &mouse_data_y, 1);
 
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
+void hc05_task(void *p) {
+    uart_init(hc05_UART_ID, hc05_BAUD_RATE);
+    gpio_set_function(hc05_TX_PIN, GPIO_FUNC_UART);
+    gpio_set_function(hc05_RX_PIN, GPIO_FUNC_UART);
+    hc05_init("Carushow", "1234");
+    gpio_init(hc05_PIN);
+    gpio_set_dir(hc05_PIN, GPIO_IN);
+
+    while(true){
+        if (gpio_get(hc05_PIN) == 1) {
+            xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
+            xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
+            xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
+            break;
+        }
+    }
+
+    // hc06_init("BTDeck", "bloons"); // Comentar para debugar localmente
+
+    //if hc05_chack_connection();
+
+    char letra;
+    char msg[2];
+    struct mouse mouse_data;
+    while (true) {
+        // uart_puts(hc05_UART_ID, "OLAAA ");
+       // sprintf(msg,"%c ", letra);
+        if (xQueueReceive(xQueueLetra, &letra, pdMS_TO_TICKS(100))) {
+            uart_putc_raw(hc05_UART_ID, 0);
+            uart_putc_raw(hc05_UART_ID, letra);
+            uart_putc_raw(hc05_UART_ID, 0);
+            uart_putc_raw(hc05_UART_ID, 1);
+            uart_putc_raw(hc05_UART_ID, -1);
+            //uart_puts(hc05_UART_ID, msg);
+        //     vTaskDelay(pdMS_TO_TICKS(100));  
+        }
+        if (xQueueReceive(xQueueMouse, &mouse_data, pdMS_TO_TICKS(100))) {
+            int val = mouse_data.val;
+            int msb = val >> 8;
+            int lsb = val & 0xFF ;
+            uart_putc_raw(hc05_UART_ID, 1);
+            uart_putc_raw(hc05_UART_ID, mouse_data.axis);
+            uart_putc_raw(hc05_UART_ID, msb);
+            uart_putc_raw(hc05_UART_ID, lsb);
+            uart_putc_raw(hc05_UART_ID, -1);
+           // mouse_write_package(mouse_data);
+            // vTaskDelay(pdMS_TO_TICKS(100));
+        }
+
+    }
+}
 
 int main() {
     // stdio_init_all();
@@ -464,17 +488,17 @@ int main() {
 
     //Filas
     xQueueBTN = xQueueCreate(32, sizeof(uint16_t));
-    xQueueMouse = xQueueCreate(32, sizeof(mouse_t));
+    xQueueMouse = xQueueCreate(4, sizeof(mouse_t));
     xQueueLetra = xQueueCreate(32, sizeof(char));
     xQueueClasse = xQueueCreate(32, sizeof(int));
     xQueueEnter = xQueueCreate(32, sizeof(int));
 
 
     //Tasks
-    xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
     xTaskCreate(hc05_task, "UART_Task 1", 4096, NULL, 1, NULL);
-    xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
-    xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
+    // xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
+    // xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
+    // xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
 
     vTaskStartScheduler();
 

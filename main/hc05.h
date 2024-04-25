@@ -15,7 +15,7 @@
 #define hc05_BAUD_RATE 9600
 #define hc05_RX_PIN 0
 #define hc05_TX_PIN 1
-#define hc05_PIN 6
+#define hc05_PIN 13
 
 bool hc05_check_connection();
 bool hc05_set_name(char name[]);
