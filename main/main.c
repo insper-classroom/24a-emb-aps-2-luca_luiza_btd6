@@ -377,7 +377,7 @@ void mouse_task(void *p){
     adc_gpio_init(Y_PIN); //Y
 
     int zone_limit = 80;
-    int mouse_speed = 10;
+    int mouse_speed = 20;
     
     while (1) {
         //X
@@ -447,7 +447,6 @@ void hc05_task(void *p) {
     //if hc05_chack_connection();
 
     char letra;
-    char msg[2];
     struct mouse mouse_data;
     while (true) {
         // uart_puts(hc05_UART_ID, "OLAAA ");
