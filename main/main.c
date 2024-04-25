@@ -140,11 +140,13 @@ void hc05_task(void *p) {
     //if hc05_chack_connection();
 
     char letra;
+    char msg[2];
     struct mouse mouse_data;
     while (true) {
-        uart_puts(hc05_UART_ID, "OLAAA ");
+        // uart_puts(hc05_UART_ID, "OLAAA ");
+        sprintf(msg,"%c ", letra);
         if (xQueueReceive(xQueueLetra, &letra, pdMS_TO_TICKS(100))) {
-            uart_puts(hc05_UART_ID, letra);
+            uart_puts(hc05_UART_ID, msg);
         //     vTaskDelay(pdMS_TO_TICKS(100));  
         }
         if (xQueueReceive(xQueueMouse, &mouse_data, pdMS_TO_TICKS(100))) {
@@ -222,7 +224,7 @@ void seletor_task(void *p) {
             gfx_show(&disp);
         }
 
-        encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
+        int8_t encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
         enc_state = (enc_state << 2) | encoded;
         int sum = state_table[enc_state & 0x0f];
 

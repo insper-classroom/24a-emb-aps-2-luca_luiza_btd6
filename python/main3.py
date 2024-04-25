@@ -1,8 +1,8 @@
 import serial
 import uinput
 import time
-ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
-# clear buffer
+#ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+ser = serial.Serial('/dev/rfcomm0', 9600, timeout=10)
 ser.flushInput()
 
 device = uinput.Device([
@@ -59,8 +59,9 @@ try:
     while True:
         print('Waiting for sync package...')
         while True:
-            data = ser.read(2)
+            data = ser.read()
             if data:
+                print(f"DATAAAA: {data}")
                 print(ascii(data))
                 button = data[0]
                 print(button)
@@ -153,9 +154,12 @@ try:
                     device.emit_click(uinput.BTN_LEFT)
                 if data == b'\xff':
                     break
-        # data = ser.read(3)
-        # axis, value = parse_data(data)
-        # move_mouse(axis, value)
+                ser.flushInput()
+
+
+                data = ser.read(3)
+                axis, value = parse_data(data)
+                move_mouse(axis, value)
 
 
     print("Program terminated by user")
