@@ -72,11 +72,8 @@ try:
             
         print(data)
         if data[0] == 0:
-
-            print(ascii(data))
             button = data[1]
-            print(button)
-
+            print(chr(button))
             if chr(button) == 'A':
                 print("a chegou")
                 device.emit_click(uinput.KEY_A)
@@ -163,10 +160,11 @@ try:
                 device.emit_click(uinput.KEY_SLASH)
             if chr(button) == '|':
                 print("left click")
-                device.emit_click(uinput.BTN_LEFT)
+                device.emit(uinput.BTN_LEFT,1)
+                device.emit(uinput.BTN_LEFT,0)
+
             
         if data[0] == 1:
-            #breakpoint()
             axis, valor = parse_data(data[1:4])     
             move_mouse(axis, valor)
 

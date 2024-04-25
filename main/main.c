@@ -377,7 +377,7 @@ void mouse_task(void *p){
     adc_gpio_init(Y_PIN); //Y
 
     int zone_limit = 80;
-    int mouse_speed = 5;
+    int mouse_speed = 10;
     
     while (1) {
         //X
@@ -421,7 +421,7 @@ void mouse_task(void *p){
         if (y != 0)
             xQueueSend(xQueueMouse, &mouse_data_y, 1);
 
-        vTaskDelay(pdMS_TO_TICKS(20));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
@@ -435,7 +435,7 @@ void hc05_task(void *p) {
 
     while(true){
         if (gpio_get(hc05_PIN) == 1) {
-            xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
+            xTaskCreate(mouse_task, "Mouse_Task", 4, NULL, 1, NULL);
             xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
             xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
             break;
