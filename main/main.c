@@ -435,7 +435,7 @@ void hc05_task(void *p) {
 
     while(true){
         if (gpio_get(hc05_PIN) == 1) {
-            xTaskCreate(mouse_task, "Mouse_Task", 4, NULL, 1, NULL);
+            xTaskCreate(mouse_task, "Mouse_Task", 4096, NULL, 1, NULL);
             xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
             xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
             break;
