@@ -159,7 +159,7 @@ void hc05_task(void *p) {
 void seletor_task(void *p) {
     //Configuração do Encoder
     uint8_t enc_state = 0; // Current state of the encoder
-    int8_t last_encoded = 0; // Last encoded state
+    //int8_t last_encoded = 0; // Last encoded state
     int8_t encoded;
 
     int last_sum = 0; // Last non-zero sum to filter out noise
@@ -173,7 +173,7 @@ void seletor_task(void *p) {
     gpio_set_dir(ENCB_PIN, GPIO_IN);
     gpio_pull_up(ENCA_PIN);
     gpio_pull_up(ENCB_PIN);
-    last_encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
+    //last_encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
 
     // Inicialização do Display
     ssd1306_init();
