@@ -157,12 +157,11 @@ void hc05_task(void *p) {
 }
 
 void seletor_task(void *p) {
-
     //Configuração do Encoder
     uint8_t enc_state = 0; // Current state of the encoder
     int8_t last_encoded = 0; // Last encoded state
     int8_t encoded;
-    int sum = 0;
+
     int last_sum = 0; // Last non-zero sum to filter out noise
     int debounce_counter = 0; // Debounce counter
     int count = 0;
@@ -225,7 +224,7 @@ void seletor_task(void *p) {
 
         encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
         enc_state = (enc_state << 2) | encoded;
-        sum = state_table[enc_state & 0x0f];
+        int sum = state_table[enc_state & 0x0f];
 
         if (sum != 0) {
             if (sum == last_sum) {
