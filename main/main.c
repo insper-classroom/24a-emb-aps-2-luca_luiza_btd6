@@ -11,7 +11,7 @@
 #include "hardware/adc.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
-#include "hc06.h"
+#include "hc05.h"
 
 //PINs
 const int BTN_PIN_SW = 2;
@@ -77,10 +77,10 @@ void mouse_write_package(mouse_t data) {
     int msb = val >> 8;
     int lsb = val & 0xFF ;
     
-    uart_putc_raw(HC06_UART_ID, data.axis); 
-    uart_putc_raw(HC06_UART_ID, lsb);
-    uart_putc_raw(HC06_UART_ID, msb); 
-    uart_putc_raw(HC06_UART_ID, -1); 
+    uart_putc_raw(hc05_UART_ID, data.axis); 
+    uart_putc_raw(hc05_UART_ID, lsb);
+    uart_putc_raw(hc05_UART_ID, msb); 
+    uart_putc_raw(hc05_UART_ID, -1); 
 }
 
 //IRQS________________________________________________________________________________________________________________________________
@@ -129,23 +129,30 @@ void btn_callback(uint gpio, uint32_t events) {
 }
 
 // TASKS_______________________________________________________________________________________________________________________________
-void hc06_task(void *p) {
-    uart_init(HC06_UART_ID, HC06_BAUD_RATE);
-    gpio_set_function(HC06_TX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(HC06_RX_PIN, GPIO_FUNC_UART);
+void hc05_task(void *p) {
+    uart_init(hc05_UART_ID, hc05_BAUD_RATE);
+    gpio_set_function(hc05_TX_PIN, GPIO_FUNC_UART);
+    gpio_set_function(hc05_RX_PIN, GPIO_FUNC_UART);
+    hc05_init("Carushow", "1234");
+
     // hc06_init("BTDeck", "bloons"); // Comentar para debugar localmente
+
+    //if hc05_chack_connection();
 
     char letra;
     struct mouse mouse_data;
     while (true) {
+        uart_puts(hc05_UART_ID, "OLAAA ");
         if (xQueueReceive(xQueueLetra, &letra, pdMS_TO_TICKS(100))) {
-            uart_puts(HC06_UART_ID, &letra);
+            uart_puts(hc05_UART_ID, letra);
         //     vTaskDelay(pdMS_TO_TICKS(100));  
         }
         if (xQueueReceive(xQueueMouse, &mouse_data, pdMS_TO_TICKS(100))) {
             mouse_write_package(mouse_data);
             // vTaskDelay(pdMS_TO_TICKS(100));
         }
+        vTaskDelay(pdMS_TO_TICKS(100));
+
     }
 }
 
@@ -464,7 +471,7 @@ int main() {
 
     //Tasks
     xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
-    xTaskCreate(hc06_task, "UART_Task 1", 4096, NULL, 1, NULL);
+    xTaskCreate(hc05_task, "UART_Task 1", 4096, NULL, 1, NULL);
     xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
     xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
 

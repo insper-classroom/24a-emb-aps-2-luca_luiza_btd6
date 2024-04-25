@@ -4,7 +4,8 @@ import time
 ser = serial.Serial('/dev/rfcomm0', 115200)
 
 ax = [uinput.X_PIN, uinput.Y_PIN]
-btns = [   uinput.KEY_A,
+btns = [
+    uinput.KEY_A,
     uinput.KEY_B,
     uinput.KEY_C,
     uinput.KEY_D,
