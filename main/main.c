@@ -160,7 +160,7 @@ void seletor_task(void *p) {
     //Configuração do Encoder
     uint8_t enc_state = 0; // Current state of the encoder
     //int8_t last_encoded = 0; // Last encoded state
-    int8_t encoded;
+    //int8_t encoded;
 
     int last_sum = 0; // Last non-zero sum to filter out noise
     int debounce_counter = 0; // Debounce counter
