@@ -304,7 +304,7 @@ void botao_task(void *p) {
     int cor;
     while (1) {
         //printf("xQueueBTN: ");
-        if (xQueueReceiveFromISR(xQueueBTN, &btn, 1)) {
+        if (xQueueReceive(xQueueBTN, &btn, 1)) {
             //printf("Botao pressionado: %d\n", btn);
             // 0--> SW, 1-->BTN1, 2-->BTN2, 3-->BTN3,4-->ENTER, 5-->UP, 6-->RIGHT, 7-->DOWN, 8-->LEFT, 9-->ON_OFF
             //const char a_melhorias[] = {',','.','/'};
