@@ -70,19 +70,6 @@ const int8_t state_table[] = {
         0,  1, -1,  0
     };
 
-
-//FUNCOES________________________________________________________________________________________________________________________________
-void mouse_write_package(mouse_t data) {
-    int val = data.val;
-    int msb = val >> 8;
-    int lsb = val & 0xFF ;
-    
-    uart_putc_raw(hc05_UART_ID, data.axis); 
-    uart_putc_raw(hc05_UART_ID, lsb);
-    uart_putc_raw(hc05_UART_ID, msb); 
-    uart_putc_raw(hc05_UART_ID, -1); 
-}
-
 //IRQS________________________________________________________________________________________________________________________________
 
 void btn_callback(uint gpio, uint32_t events) {
@@ -119,9 +106,6 @@ void btn_callback(uint gpio, uint32_t events) {
             else if (gpio == BTN_PIN_LEFT){
                 btn = 8;
             }
-            // else if (gpio == BTN_PIN_ON_OFF){
-            //     btn = 9;
-            // }       
             xQueueSendFromISR(xQueueBTN, &btn, 1);
         }
         last_interrupt_time = interrupt_time;
@@ -132,8 +116,6 @@ void btn_callback(uint gpio, uint32_t events) {
 void seletor_task(void *p) {
     //Configuração do Encoder
     uint8_t enc_state = 0; // Current state of the encoder
-    //int8_t last_encoded = 0; // Last encoded state
-    //int8_t encoded;
 
     int last_sum = 0; // Last non-zero sum to filter out noise
     int debounce_counter = 0; // Debounce counter
@@ -146,7 +128,6 @@ void seletor_task(void *p) {
     gpio_set_dir(ENCB_PIN, GPIO_IN);
     gpio_pull_up(ENCA_PIN);
     gpio_pull_up(ENCB_PIN);
-    //last_encoded = (gpio_get(ENCA_PIN) << 1) | gpio_get(ENCB_PIN);
 
     // Inicialização do Display
     ssd1306_init();
@@ -228,8 +209,6 @@ void seletor_task(void *p) {
                     }
                     debounce_counter = 0;  // Reset the counter after confirming the direction
                     
-                    //Caso o botão enter seja pressionado, o macaco selecionado é enviado para a fila
-                    // If queuebotaoenter, envia a letra atual
                 }
             } 
             else {
@@ -354,16 +333,6 @@ void botao_task(void *p) {
                 xQueueSend(xQueueClasse, &cor, 1);
                 // printf("LEFT\n"); // Debug
             }
-            // else if (btn == 9) {
-            //     if (xHandle == NULL){
-            //         //xTaskCreate(hc06_task, "UART_Task 1", 4096, NULL, 1, &xHandle);
-            //         xTaskCreate(seletor_task, "Display", 4095, NULL, 1, &xHandle);   
-            //     }
-            //     else {
-            //         vTaskDelete(xHandle);
-            //         xHandle = NULL;
-            //     }
-            // }
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
@@ -442,10 +411,6 @@ void hc05_task(void *p) {
         }
     }
 
-    // hc06_init("BTDeck", "bloons"); // Comentar para debugar localmente
-
-    //if hc05_chack_connection();
-
     char letra;
     struct mouse mouse_data;
     while (true) {
@@ -469,7 +434,6 @@ void hc05_task(void *p) {
             uart_putc_raw(hc05_UART_ID, msb);
             uart_putc_raw(hc05_UART_ID, lsb);
             uart_putc_raw(hc05_UART_ID, -1);
-           // mouse_write_package(mouse_data);
             // vTaskDelay(pdMS_TO_TICKS(100));
         }
 
@@ -477,13 +441,6 @@ void hc05_task(void *p) {
 }
 
 int main() {
-    // stdio_init_all();
-    // uart_init(uart0, 115200);
-    // gpio_set_function(0, GPIO_FUNC_UART);
-    // gpio_set_function(1, GPIO_FUNC_UART);
-    //printf("Start bluetooth task\n");
-
-    //Semaforos
 
     //Filas
     xQueueBTN = xQueueCreate(32, sizeof(uint16_t));
@@ -495,9 +452,9 @@ int main() {
 
     //Tasks
     xTaskCreate(hc05_task, "UART_Task 1", 4096, NULL, 1, NULL);
-    // xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL);
-    // xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL);
-    // xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL);
+    // xTaskCreate(mouse_task, "Mouse_Task", 4095, NULL, 1, NULL); // Debug
+    // xTaskCreate(seletor_task, "Display", 4095, NULL, 1, NULL); // Debug
+    // xTaskCreate(botao_task, "Botao_Task", 4095, NULL, 1, NULL); // Debug
 
     vTaskStartScheduler();
 
