@@ -1,8 +1,8 @@
-# BLOONS DECK
+![Imagem do WhatsApp de 2024-04-28 à(s) 22 54 47_07ad7564](https://github.com/insper-classroom/24a-emb-aps-2-luca_luiza_btd6/assets/92476786/3131267d-bb94-4ff5-a085-308986ef5070)# BLOONS DECK
 
 Controle desenhado para o jogo Bloons™ Tower Defense 6 por Luca Caruso e Luiza Ehrenberger
 ![Imagem do WhatsApp de 2024-04-28 à(s) 22 21 01_eb7b5486](https://github.com/insper-classroom/24a-emb-aps-2-luca_luiza_btd6/assets/92476786/b0790612-04af-4c1f-be82-247ea198f2b2)
-![Imagem do WhatsApp de 2024-04-26 à(s) 17 54 56_0d210630](https://github.com/insper-classroom/24a-emb-aps-2-luca_luiza_btd6/assets/92476786/b43caa36-547c-4350-b238-f984c9125b6b)
+![Imagem do WhatsApp de 2024-04-28 à(s) 22 54 47_07ad7564](https://github.com/insper-classroom/24a-emb-aps-2-luca_luiza_btd6/assets/92476786/0a3465e4-74fc-418e-9e60-987167a0e42d)
 
 # Diagrama das tasks e filas do código
 ![image](https://github.com/insper-classroom/24a-emb-aps-2-luca_luiza_btd6/assets/92476786/ae8195f8-34fa-4efc-a021-f8f5ae8db656)
